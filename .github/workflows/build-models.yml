@@ -21,19 +21,33 @@ jobs:
 
       - name: Convert models
         run: |
+          set -e
+
           for zone in */; do
+            echo "Revisando zona: $zone"
+
             if [ -d "${zone}src" ]; then
+              echo "→ Tiene carpeta src"
+
               mkdir -p "${zone}dist"
 
+              echo "Contenido de ${zone}src:"
+              ls -la "${zone}src"
+
               for obj in "${zone}"src/*.obj; do
-                [ -e "$obj" ] || continue
+                if [ ! -f "$obj" ]; then
+                  echo "No hay .obj en ${zone}src"
+                  continue
+                fi
 
                 name=$(basename "$obj" .obj)
 
-                echo "Procesando ${zone}${name}"
+                echo "Procesando: $obj"
 
                 npx @gltf-transform/cli convert "$obj" "${zone}dist/${name}.glb"
               done
+            else
+              echo "No existe ${zone}src"
             fi
           done
 
