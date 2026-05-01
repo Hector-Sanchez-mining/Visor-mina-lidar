@@ -1,11 +1,10 @@
-
 name: Build 3D Models
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # ← CLAVE
+  contents: write
 
 jobs:
   convert:
@@ -20,31 +19,33 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install gltf-transform
-        run: npm install -g @gltf-transform/cli
+      - name: Convert models
+        run: |
+          for zone in */; do
+            if [ -d "${zone}src" ]; then
+              mkdir -p "${zone}dist"
 
-- name: Convert models
-  run: |
-    for zone in */; do
-      if [ -d "${zone}src" ]; then
-        mkdir -p "${zone}dist"
+              for obj in "${zone}"src/*.obj; do
+                [ -e "$obj" ] || continue
 
-        for obj in "${zone}"src/*.obj; do
-          [ -e "$obj" ] || continue
+                name=$(basename "$obj" .obj)
 
-          name=$(basename "$obj" .obj)
+                echo "Procesando ${zone}${name}"
 
-          echo "Procesando ${zone}${name}"
-
-          npx @gltf-transform/cli convert "$obj" "${zone}dist/${name}.glb"
-        done
-      fi
-    done
+                npx @gltf-transform/cli convert "$obj" "${zone}dist/${name}.glb"
+              done
+            fi
+          done
 
       - name: Commit results
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add zones/**/dist/*.glb
-          git commit -m "Auto: build GLB models" || echo "No changes"
-          git push
+
+          if ls */dist/*.glb 1> /dev/null 2>&1; then
+            git add */dist/*.glb
+            git commit -m "Auto: build GLB models"
+            git push
+          else
+            echo "No GLB files found, skipping commit"
+          fi
