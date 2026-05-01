@@ -1,10 +1,44 @@
-name: Test Workflow
+name: Build 3D Models
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  convert:
     runs-on: ubuntu-latest
+
     steps:
-      - run: echo "ok"
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install gltf-transform
+        run: npm install -g @gltf-transform/cli
+
+      - name: Convert models
+        run: |
+          for zone in zones/*; do
+            if [ -d "$zone/src" ]; then
+              mkdir -p "$zone/dist"
+              for obj in "$zone"/src/*.obj; do
+                [ -e "$obj" ] || continue
+                name=$(basename "$obj" .obj)
+
+                echo "Procesando $zone/$name"
+
+                gltf-transform convert "$obj" "$zone/dist/$name.glb"
+              done
+            fi
+          done
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add zones/**/dist/*.glb
+          git commit -m "Auto: build GLB models" || echo "No changes"
+          git push
