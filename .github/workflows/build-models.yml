@@ -14,15 +14,17 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install Node tools
         run: |
           npm install -g obj2gltf
           npm install -g @gltf-transform/cli
 
-      - name: Install KTX tools
+      - name: Install KTX (BasisU)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libktx-tools
+          curl -L https://github.com/KhronosGroup/KTX-Software/releases/download/v4.3.0/ktx-software-4.3.0-linux-x86_64.tar.gz -o ktx.tar.gz
+          tar -xzf ktx.tar.gz
+          sudo cp ktx-software-*/bin/ktx /usr/local/bin/
+          ktx --version
 
       - name: Convert + Optimize models
         run: |
