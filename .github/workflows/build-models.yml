@@ -24,7 +24,7 @@ jobs:
           npm install -g obj2gltf
           npm install -g @gltf-transform/cli
 
-      - name: Convert + Draco optimize
+      - name: Convert + optimize models
         run: |
           set -e
 
@@ -37,13 +37,23 @@ jobs:
 
                 name=$(basename "$obj" .obj)
 
-                echo "→ OBJ → GLB"
+                echo "=============================="
+                echo "Procesando: $name"
+                echo "=============================="
+
+                # 1. OBJ → GLB
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
 
-                echo "→ Draco"
+                # 2. Draco (geometría)
                 npx @gltf-transform/cli draco \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
+
+                # 3. KTX2 (texturas)
+                npx @gltf-transform/cli etc1s \
+                  "${zone}dist/${name}.glb" \
+                  "${zone}dist/${name}.glb"
+
               done
             fi
           done
@@ -60,5 +70,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Auto: optimized GLB models"
+          git commit -m "Auto: optimized GLB (Draco + KTX2)"
           git push
