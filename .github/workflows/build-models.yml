@@ -1,7 +1,11 @@
+
 name: Build 3D Models
 
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write   # ← CLAVE
 
 jobs:
   convert:
