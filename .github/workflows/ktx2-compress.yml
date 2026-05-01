@@ -23,7 +23,7 @@ jobs:
         run: |
           npm install -g @gltf-transform/cli
 
-      - name: Compress textures to KTX2
+      - name: KTX2 Compression (correct pipeline)
         run: |
           set -e
 
@@ -33,11 +33,14 @@ jobs:
               for glb in "${zone}"dist/*.glb; do
                 [ -f "$glb" ] || continue
 
-                echo "Compressing textures: $glb"
+                echo "Processing: $glb"
 
-                npx @gltf-transform/cli etc1s \
+                # KTX2 compression WITHOUT external ktx binary
+                npx @gltf-transform/cli transform \
                   "$glb" \
-                  "$glb"
+                  "$glb" \
+                  --compress textures \
+                  --texture-compress etc1s
 
               done
             fi
@@ -54,5 +57,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "KTX2 texture compression"
+          git commit -m "KTX2 texture compression (fixed pipeline)"
           git push
