@@ -1,4 +1,4 @@
-name: Build 3D Models
+name: Build 3D Models (GLB + Draco)
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
           npm install -g obj2gltf
           npm install -g @gltf-transform/cli
 
-      - name: Convert + optimize models
+      - name: Convert + Draco
         run: |
           set -e
 
@@ -37,23 +37,11 @@ jobs:
 
                 name=$(basename "$obj" .obj)
 
-                echo "=============================="
-                echo "Procesando: $name"
-                echo "=============================="
-
-                # OBJ → GLB
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
 
-                # Draco (geometría)
                 npx @gltf-transform/cli draco \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
-
-                # KTX2 correcto (MATERIAL / TEXTURES)
-                npx @gltf-transform/cli etc1s \
-                  "${zone}dist/${name}.glb" \
-                  "${zone}dist/${name}.glb"
-
               done
             fi
           done
@@ -66,9 +54,8 @@ jobs:
           git add .
 
           if git diff --cached --quiet; then
-            echo "No changes"
             exit 0
           fi
 
-          git commit -m "Auto: GLB optimized (Draco)"
+          git commit -m "GLB + Draco build"
           git push
