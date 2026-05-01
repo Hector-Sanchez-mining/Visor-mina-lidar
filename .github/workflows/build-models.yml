@@ -44,7 +44,7 @@ jobs:
 
                 echo "Procesando: $obj"
 
-                npx @gltf-transform/cli convert "$obj" "${zone}dist/${name}.glb"
+                npx @gltf-transform/cli copy "$obj" "${zone}dist/${name}.glb"
               done
             else
               echo "No existe ${zone}src"
