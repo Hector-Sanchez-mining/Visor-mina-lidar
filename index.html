@@ -591,9 +591,6 @@
   const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
   dir2.position.set(-2, -1, -2); scene.add(dir2);
 
-  const grid = new THREE.GridHelper(5000, 50, 0x1e2d3d, 0x1e2d3d);
-  scene.add(grid);
-
   function resize() {
     const w = container.clientWidth, h = container.clientHeight;
     renderer.setSize(w, h, false);
@@ -1020,9 +1017,6 @@
 
     const maxDim = Math.max(size.x, size.y, size.z);
     baseDist = maxDim * 1.8;
-
-    grid.scale.setScalar(maxDim / 2500);
-    grid.position.y = box.min.y;
 
     rotX = 0; rotY = 0; panX = center.x; panY = center.y; zoom = 1;
     camera.position.set(
