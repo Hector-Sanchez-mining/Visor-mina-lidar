@@ -23,21 +23,23 @@ jobs:
       - name: Install gltf-transform
         run: npm install -g @gltf-transform/cli
 
-      - name: Convert models
-        run: |
-          for zone in zones/*; do
-            if [ -d "$zone/src" ]; then
-              mkdir -p "$zone/dist"
-              for obj in "$zone"/src/*.obj; do
-                [ -e "$obj" ] || continue
-                name=$(basename "$obj" .obj)
+- name: Convert models
+  run: |
+    for zone in */; do
+      if [ -d "${zone}src" ]; then
+        mkdir -p "${zone}dist"
 
-                echo "Procesando $zone/$name"
+        for obj in "${zone}"src/*.obj; do
+          [ -e "$obj" ] || continue
 
-                gltf-transform convert "$obj" "$zone/dist/$name.glb"
-              done
-            fi
-          done
+          name=$(basename "$obj" .obj)
+
+          echo "Procesando ${zone}${name}"
+
+          npx @gltf-transform/cli convert "$obj" "${zone}dist/${name}.glb"
+        done
+      fi
+    done
 
       - name: Commit results
         run: |
