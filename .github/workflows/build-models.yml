@@ -14,10 +14,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install tools
+      - name: Install dependencies
         run: |
           npm install -g obj2gltf
           npm install -g @gltf-transform/cli
+
+      - name: Install KTX tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libktx-tools
 
       - name: Convert + Optimize models
         run: |
