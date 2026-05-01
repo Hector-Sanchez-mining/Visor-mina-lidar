@@ -14,10 +14,8 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Install obj2gltf
+        run: npm install -g obj2gltf
 
       - name: Convert models
         run: |
@@ -44,7 +42,7 @@ jobs:
 
                 echo "Procesando: $obj"
 
-                npx @gltf-transform/cli import "$obj" "${zone}dist/${name}.glb"
+                obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
               done
             else
               echo "No existe ${zone}src"
