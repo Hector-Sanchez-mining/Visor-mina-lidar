@@ -14,19 +14,17 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Node tools
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tools
         run: |
           npm install -g obj2gltf
           npm install -g @gltf-transform/cli
 
-      - name: Install KTX (BasisU)
-        run: |
-          curl -L https://github.com/KhronosGroup/KTX-Software/releases/download/v4.3.0/ktx-software-4.3.0-linux-x86_64.tar.gz -o ktx.tar.gz
-          tar -xzf ktx.tar.gz
-          sudo cp ktx-software-*/bin/ktx /usr/local/bin/
-          ktx --version
-
-      - name: Convert + Optimize models
+      - name: Convert + Draco optimize
         run: |
           set -e
 
@@ -42,13 +40,8 @@ jobs:
                 echo "→ OBJ → GLB"
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
 
-                echo "→ Draco"
+                echo "→ Draco compression"
                 npx @gltf-transform/cli draco \
-                  "${zone}dist/${name}.glb" \
-                  "${zone}dist/${name}.glb"
-
-                echo "→ Texturas KTX2"
-                npx @gltf-transform/cli etc1s \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
               done
@@ -62,8 +55,8 @@ jobs:
 
           if ls */dist/*.glb 1> /dev/null 2>&1; then
             git add */dist/*.glb
-            git commit -m "Auto: build optimized GLB models"
+            git commit -m "Auto: optimized GLB models"
             git push
           else
-            echo "No GLB files found, skipping commit"
+            echo "No GLB files found"
           fi
