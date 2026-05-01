@@ -1,4 +1,4 @@
-name: Compress Textures (KTX2)
+name: Compress Textures (KTX2 Stable)
 
 on:
   workflow_dispatch:
@@ -19,11 +19,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install gltf-transform
+      - name: Install tools
         run: |
           npm install -g @gltf-transform/cli
 
-      - name: KTX2 Compression (correct pipeline)
+      - name: KTX2 compression
         run: |
           set -e
 
@@ -35,11 +35,11 @@ jobs:
 
                 echo "Processing: $glb"
 
-                # KTX2 compression WITHOUT external ktx binary
-                npx @gltf-transform/cli transform \
+                # REAL supported pipeline
+                npx @gltf-transform/cli optimize \
                   "$glb" \
                   "$glb" \
-                  --compress textures \
+                  --compress draco \
                   --texture-compress etc1s
 
               done
@@ -57,5 +57,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "KTX2 texture compression (fixed pipeline)"
+          git commit -m "KTX2 compression (stable optimize pipeline)"
           git push
