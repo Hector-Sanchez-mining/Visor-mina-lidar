@@ -14,10 +14,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install obj2gltf
-        run: npm install -g obj2gltf
+      - name: Install tools
+        run: |
+          npm install -g obj2gltf
+          npm install -g @gltf-transform/cli
 
-      - name: Convert models
+      - name: Convert + Compress models
         run: |
           set -e
 
@@ -25,27 +27,25 @@ jobs:
             echo "Revisando zona: $zone"
 
             if [ -d "${zone}src" ]; then
-              echo "→ Tiene carpeta src"
-
               mkdir -p "${zone}dist"
 
-              echo "Contenido de ${zone}src:"
-              ls -la "${zone}src"
-
               for obj in "${zone}"src/*.obj; do
-                if [ ! -f "$obj" ]; then
-                  echo "No hay .obj en ${zone}src"
-                  continue
-                fi
+                [ -f "$obj" ] || continue
 
                 name=$(basename "$obj" .obj)
 
-                echo "Procesando: $obj"
+                echo "→ Convirtiendo $obj"
 
+                # OBJ → GLB
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
+
+                echo "→ Aplicando Draco"
+
+                # compresión Draco
+                npx @gltf-transform/cli draco \
+                  "${zone}dist/${name}.glb" \
+                  "${zone}dist/${name}.glb"
               done
-            else
-              echo "No existe ${zone}src"
             fi
           done
 
@@ -56,7 +56,7 @@ jobs:
 
           if ls */dist/*.glb 1> /dev/null 2>&1; then
             git add */dist/*.glb
-            git commit -m "Auto: build GLB models"
+            git commit -m "Auto: build optimized GLB models"
             git push
           else
             echo "No GLB files found, skipping commit"
