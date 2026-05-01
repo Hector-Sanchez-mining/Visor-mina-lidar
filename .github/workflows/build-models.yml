@@ -6,6 +6,7 @@ on:
       - 'zones/**/src/*.obj'
       - 'zones/**/src/*.mtl'
       - 'zones/**/src/*.jpg'
+  workflow_dispatch:
 
 jobs:
   convert:
