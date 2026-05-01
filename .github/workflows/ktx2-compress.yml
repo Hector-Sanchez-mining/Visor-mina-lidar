@@ -1,0 +1,58 @@
+name: Compress Textures (KTX2)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ktx:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install gltf-transform
+        run: |
+          npm install -g @gltf-transform/cli
+
+      - name: Compress textures to KTX2
+        run: |
+          set -e
+
+          for zone in */; do
+            if [ -d "${zone}dist" ]; then
+
+              for glb in "${zone}"dist/*.glb; do
+                [ -f "$glb" ] || continue
+
+                echo "Compressing textures: $glb"
+
+                npx @gltf-transform/cli etc1s \
+                  "$glb" \
+                  "$glb"
+
+              done
+            fi
+          done
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "KTX2 texture compression"
+          git push
