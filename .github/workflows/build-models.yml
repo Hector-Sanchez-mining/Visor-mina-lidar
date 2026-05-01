@@ -49,8 +49,8 @@ jobs:
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
 
-                # KTX2 (correcto sin ktx binary)
-                npx @gltf-transform/cli basisu \
+                # KTX2 correcto (MATERIAL / TEXTURES)
+                npx @gltf-transform/cli etc1s \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
 
@@ -70,5 +70,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "Auto: GLB optimized (Draco + KTX2)"
+          git commit -m "Auto: GLB optimized (Draco)"
           git push
