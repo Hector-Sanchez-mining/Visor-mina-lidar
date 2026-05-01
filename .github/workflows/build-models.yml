@@ -19,13 +19,11 @@ jobs:
           npm install -g obj2gltf
           npm install -g @gltf-transform/cli
 
-      - name: Convert + Compress models
+      - name: Convert + Optimize models
         run: |
           set -e
 
           for zone in */; do
-            echo "Revisando zona: $zone"
-
             if [ -d "${zone}src" ]; then
               mkdir -p "${zone}dist"
 
@@ -34,15 +32,16 @@ jobs:
 
                 name=$(basename "$obj" .obj)
 
-                echo "→ Convirtiendo $obj"
-
-                # OBJ → GLB
+                echo "→ OBJ → GLB"
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
 
-                echo "→ Aplicando Draco"
-
-                # compresión Draco
+                echo "→ Draco"
                 npx @gltf-transform/cli draco \
+                  "${zone}dist/${name}.glb" \
+                  "${zone}dist/${name}.glb"
+
+                echo "→ Texturas KTX2"
+                npx @gltf-transform/cli etc1s \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
               done
