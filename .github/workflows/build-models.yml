@@ -40,7 +40,7 @@ jobs:
                 echo "→ OBJ → GLB"
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
 
-                echo "→ Draco compression"
+                echo "→ Draco"
                 npx @gltf-transform/cli draco \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
@@ -53,10 +53,12 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          if ls */dist/*.glb 1> /dev/null 2>&1; then
-            git add */dist/*.glb
-            git commit -m "Auto: optimized GLB models"
-            git push
-          else
-            echo "No GLB files found"
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
           fi
+
+          git commit -m "Auto: optimized GLB models"
+          git push
