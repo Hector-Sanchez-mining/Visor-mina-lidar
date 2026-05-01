@@ -41,16 +41,16 @@ jobs:
                 echo "Procesando: $name"
                 echo "=============================="
 
-                # 1. OBJ → GLB
+                # OBJ → GLB
                 obj2gltf -i "$obj" -o "${zone}dist/${name}.glb"
 
-                # 2. Draco (geometría)
+                # Draco (geometría)
                 npx @gltf-transform/cli draco \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
 
-                # 3. KTX2 (texturas)
-                npx @gltf-transform/cli etc1s \
+                # KTX2 (correcto sin ktx binary)
+                npx @gltf-transform/cli basisu \
                   "${zone}dist/${name}.glb" \
                   "${zone}dist/${name}.glb"
 
@@ -66,9 +66,9 @@ jobs:
           git add .
 
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No changes"
             exit 0
           fi
 
-          git commit -m "Auto: optimized GLB (Draco + KTX2)"
+          git commit -m "Auto: GLB optimized (Draco + KTX2)"
           git push
