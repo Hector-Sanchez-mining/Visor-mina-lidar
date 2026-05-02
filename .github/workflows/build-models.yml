@@ -20,16 +20,14 @@ jobs:
           node-version: '20'
 
       - name: Install tools
-        run: |
-          npm install -g obj2gltf gltf-pipeline
+        run: npm install -g obj2gltf gltf-pipeline @gltf-transform/cli
 
-      - name: Convert OBJ → GLB + Draco
+      - name: Convert OBJ → GLB + Draco + Simplify
         run: |
           set -e
           converted=0
 
           for zone in */; do
-            # Ignorar carpetas del sistema
             [[ "$zone" == ".github/" ]] && continue
             [[ "$zone" == "node_modules/" ]] && continue
 
@@ -44,18 +42,25 @@ jobs:
 
               name=$(basename "$obj" .obj)
               out="$dist/${name}.glb"
+              tmp="$dist/${name}_tmp.glb"
 
               echo "▶ Convirtiendo: $obj"
 
-              # Paso 1: OBJ → GLB (con texturas embebidas)
-              obj2gltf \
-                -i "$obj" \
-                -o "$out" \
-                --checkTransparency
+              # Paso 1: OBJ → GLB
+              obj2gltf -i "$obj" -o "$out" --checkTransparency
+              echo "  GLB base: $(du -sh "$out" | cut -f1)"
 
-              echo "  ✔ GLB generado: $out ($(du -sh "$out" | cut -f1))"
+              # Paso 2: Simplificación de malla (70% reducción de triángulos)
+              # --ratio 0.30 → conserva 30% de los triángulos
+              # --error 0.001 → tolerancia de error geométrico (bajo = más fiel)
+              # Ideal para LiDAR donde hay millones de tris muy pequeños
+              gltf-transform simplify "$out" "$tmp" \
+                --ratio 0.30 \
+                --error 0.001
+              mv "$tmp" "$out"
+              echo "  Simplificado: $(du -sh "$out" | cut -f1)"
 
-              # Paso 2: Aplicar compresión Draco a la geometría
+              # Paso 3: Draco sobre la malla ya simplificada
               gltf-pipeline \
                 -i "$out" \
                 -o "$out" \
@@ -64,7 +69,7 @@ jobs:
                 --draco.quantizeNormalBits 10 \
                 --draco.quantizeTexcoordBits 12
 
-              echo "  ✔ Draco aplicado: $out ($(du -sh "$out" | cut -f1))"
+              echo "  ✔ Final con Draco: $(du -sh "$out" | cut -f1)"
               converted=$((converted + 1))
             done
           done
@@ -101,5 +106,5 @@ jobs:
             echo "Sin cambios, nada que commitear."
             exit 0
           fi
-          git commit -m "chore: build GLB + Draco"
+          git commit -m "chore: build GLB + simplify + Draco"
           git push
