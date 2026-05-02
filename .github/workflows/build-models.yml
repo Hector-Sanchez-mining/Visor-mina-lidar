@@ -1,4 +1,4 @@
-name: Compress Textures (KTX2 Safe)
+name: Build 3D Models
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  ktx:
+  convert:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,43 +19,87 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install gltf-transform
+      - name: Install tools
         run: |
-          npm install -g @gltf-transform/cli
+          npm install -g obj2gltf gltf-pipeline
 
-      - name: KTX2 compression (safe mode)
+      - name: Convert OBJ → GLB + Draco
         run: |
           set -e
+          converted=0
 
           for zone in */; do
-            if [ -d "${zone}dist" ]; then
+            # Ignorar carpetas del sistema
+            [[ "$zone" == ".github/" ]] && continue
+            [[ "$zone" == "node_modules/" ]] && continue
 
-              for glb in "${zone}"dist/*.glb; do
-                [ -f "$glb" ] || continue
+            src="${zone}src"
+            dist="${zone}dist"
 
-                echo "Processing: $glb"
+            [ -d "$src" ] || continue
+            mkdir -p "$dist"
 
-                npx @gltf-transform/cli optimize \
-                  "$glb" \
-                  "$glb" \
-                  --compress draco \
-                  --texture-compress ktx2 \
-                  --texture-compress-mode etc1s
+            for obj in "$src"/*.obj; do
+              [ -f "$obj" ] || continue
 
-              done
-            fi
+              name=$(basename "$obj" .obj)
+              out="$dist/${name}.glb"
+
+              echo "▶ Convirtiendo: $obj"
+
+              # Paso 1: OBJ → GLB (con texturas embebidas)
+              obj2gltf \
+                -i "$obj" \
+                -o "$out" \
+                --checkTransparency
+
+              echo "  ✔ GLB generado: $out ($(du -sh "$out" | cut -f1))"
+
+              # Paso 2: Aplicar compresión Draco a la geometría
+              gltf-pipeline \
+                -i "$out" \
+                -o "$out" \
+                --draco.compressionLevel 7 \
+                --draco.quantizePositionBits 14 \
+                --draco.quantizeNormalBits 10 \
+                --draco.quantizeTexcoordBits 12
+
+              echo "  ✔ Draco aplicado: $out ($(du -sh "$out" | cut -f1))"
+              converted=$((converted + 1))
+            done
           done
 
-      - name: Commit results
+          echo ""
+          echo "Total convertidos: $converted modelo(s)"
+
+      - name: Verificar GLB válidos
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          errors=0
+          for zone in */; do
+            [[ "$zone" == ".github/" ]] && continue
+            dist="${zone}dist"
+            [ -d "$dist" ] || continue
+            for glb in "$dist"/*.glb; do
+              [ -f "$glb" ] || continue
+              magic=$(xxd -p -l 4 "$glb")
+              if [ "$magic" != "676c5446" ]; then
+                echo "❌ Corrupto: $glb"
+                errors=$((errors + 1))
+              else
+                echo "✔ OK: $glb"
+              fi
+            done
+          done
+          [ $errors -eq 0 ] || exit 1
 
-          git add .
-
+      - name: Commit resultados
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "*/dist/*.glb"
           if git diff --cached --quiet; then
+            echo "Sin cambios, nada que commitear."
             exit 0
           fi
-
-          git commit -m "KTX2 safe compression (etc1s)"
+          git commit -m "chore: build GLB + Draco"
           git push
