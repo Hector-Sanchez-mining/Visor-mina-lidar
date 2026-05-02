@@ -52,7 +52,7 @@ jobs:
 
               # Paso 2: Weld — une vértices duplicados y genera índices
               # OBLIGATORIO antes de simplify; los OBJ no siempre tienen índices
-              gltf-transform weld "$out" "$tmp" --tolerance 0.0001
+              gltf-transform weld "$out" "$tmp"
               mv "$tmp" "$out"
               echo "  Weld:        $(du -sh "$out" | cut -f1)"
 
