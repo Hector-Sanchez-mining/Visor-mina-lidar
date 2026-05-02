@@ -1,9 +1,9 @@
 name: Compress Textures (KTX2)
 
 on:
-  workflow_dispatch:       # disparo manual
-  workflow_run:            # o automático tras el workflow de GLB
-    workflows: ["Build Models"]   # ← cambia por el name: de tu otro .yml
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build 3D Models"]   # debe coincidir exactamente con el name: del otro workflow
     types: [completed]
 
 permissions:
@@ -13,7 +13,6 @@ jobs:
   ktx:
     runs-on: ubuntu-latest
 
-    # Si se disparó por workflow_run, solo correr si el anterior tuvo éxito
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -26,21 +25,41 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Sin cache: 'npm' — no hay package-lock.json en el repo
 
+      # ── PASO 1: instalar KTX-Software (toktx) desde GitHub Releases ──────────
+      # gltf-transform etc1s NO comprime por sí solo — internamente llama a `toktx`
+      # que debe estar instalado y en el PATH. No está en apt-get de Ubuntu.
+      - name: Install KTX-Software (toktx)
+        run: |
+          KTX_VERSION="4.3.2"
+          FILE="KTX-Software-${KTX_VERSION}-Linux-x86_64.tar.gz"
+          URL="https://github.com/KhronosGroup/KTX-Software/releases/download/v${KTX_VERSION}/${FILE}"
+
+          echo "▶ Descargando KTX-Software v${KTX_VERSION}..."
+          curl -L "$URL" -o "$FILE"
+          tar -xzf "$FILE"
+
+          # Mover los binarios al PATH
+          sudo cp KTX-Software-${KTX_VERSION}-Linux-x86_64/bin/toktx /usr/local/bin/
+          sudo chmod +x /usr/local/bin/toktx
+
+          # Verificar versión (gltf-transform requiere >= 4.3.0)
+          echo "✔ toktx instalado:"
+          toktx --version
+
+      # ── PASO 2: instalar gltf-transform CLI ──────────────────────────────────
       - name: Install gltf-transform CLI
         run: npm install -g @gltf-transform/cli
 
-      - name: Compress textures a KTX2 (etc1s)
+      # ── PASO 3: comprimir texturas ───────────────────────────────────────────
+      # etc1s: mejor compresión, ideal para texturas de color/difuse (tus JPG)
+      # Los GLB ya tienen Draco en geometría — etc1s solo toca texturas, no geometría
+      - name: Compress textures to KTX2 (ETC1S)
         run: |
           set -e
-
-          # etc1s  → mejor compresión, ideal para difuse/color (tus JPG de minería)
-          # uastc  → mejor calidad, útil para normalmaps (no es tu caso)
-          # --no-compress evita re-aplicar Draco sobre geometría ya comprimida
+          compressed=0
 
           for zone in */; do
-            # Ignorar carpetas del sistema
             [[ "$zone" == ".github/" ]] && continue
             [[ "$zone" == "node_modules/" ]] && continue
 
@@ -50,37 +69,44 @@ jobs:
             for glb in "$dist"/*.glb; do
               [ -f "$glb" ] || continue
 
-              echo "▶ Procesando: $glb"
+              size_before=$(du -sh "$glb" | cut -f1)
+              echo "▶ Comprimiendo texturas: $glb (antes: $size_before)"
 
               gltf-transform etc1s "$glb" "$glb" \
-                --slots "baseColorTexture,emissiveTexture" \
                 --quality 128 \
-                --cv 1 \
-                --ca 1 \
                 --verbose
 
-              echo "✔ Listo: $glb"
+              size_after=$(du -sh "$glb" | cut -f1)
+              echo "  ✔ Listo: $glb (después: $size_after)"
+              compressed=$((compressed + 1))
             done
           done
 
-      - name: Verificar que los GLB siguen siendo válidos
+          echo ""
+          echo "Total procesados: $compressed archivo(s)"
+
+      # ── PASO 4: verificar integridad ─────────────────────────────────────────
+      - name: Verificar GLB válidos
         run: |
+          errors=0
           for zone in */; do
             [[ "$zone" == ".github/" ]] && continue
             dist="${zone}dist"
             [ -d "$dist" ] || continue
             for glb in "$dist"/*.glb; do
               [ -f "$glb" ] || continue
-              # Verificación mínima: el archivo debe empezar con la magic de GLB (glTF)
               magic=$(xxd -p -l 4 "$glb")
               if [ "$magic" != "676c5446" ]; then
-                echo "❌ Archivo corrupto: $glb"
-                exit 1
+                echo "❌ Corrupto: $glb"
+                errors=$((errors + 1))
+              else
+                echo "✔ OK: $glb"
               fi
-              echo "✔ OK: $glb"
             done
           done
+          [ $errors -eq 0 ] || exit 1
 
+      # ── PASO 5: commit ───────────────────────────────────────────────────────
       - name: Commit resultados
         run: |
           git config user.name  "github-actions[bot]"
@@ -90,5 +116,5 @@ jobs:
             echo "Sin cambios, nada que commitear."
             exit 0
           fi
-          git commit -m "chore: KTX2 (etc1s) texture compression"
+          git commit -m "chore: KTX2 (ETC1S) texture compression"
           git push
