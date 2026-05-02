@@ -1,16 +1,16 @@
-name: Compress Textures (KTX2)
+name: Compress Textures (WebP)
 
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Build 3D Models"]   # debe coincidir exactamente con el name: del otro workflow
+    workflows: ["Build 3D Models"]   # debe coincidir con el name: del otro workflow
     types: [completed]
 
 permissions:
   contents: write
 
 jobs:
-  ktx:
+  compress:
     runs-on: ubuntu-latest
 
     if: >
@@ -26,36 +26,10 @@ jobs:
         with:
           node-version: '20'
 
-      # ── PASO 1: instalar KTX-Software (toktx) desde GitHub Releases ──────────
-      # IMPORTANTE: el archivo es .tar.bz2 (no .tar.gz) y la versión es 4.4.2
-      - name: Install KTX-Software (toktx)
-        run: |
-          KTX_VERSION="4.4.2"
-          FILE="KTX-Software-${KTX_VERSION}-Linux-x86_64.tar.bz2"
-          URL="https://github.com/KhronosGroup/KTX-Software/releases/download/v${KTX_VERSION}/${FILE}"
-
-          echo "▶ Descargando KTX-Software v${KTX_VERSION}..."
-          curl -fL "$URL" -o "$FILE"
-
-          echo "Tamaño descargado: $(du -sh "$FILE" | cut -f1)"
-
-          # Descomprimir .tar.bz2
-          tar -xjf "$FILE"
-
-          # Mover toktx al PATH
-          sudo cp "KTX-Software-${KTX_VERSION}-Linux-x86_64/bin/toktx" /usr/local/bin/
-          sudo chmod +x /usr/local/bin/toktx
-
-          # Verificar instalación
-          echo "✔ toktx instalado:"
-          toktx --version
-
-      # ── PASO 2: instalar gltf-transform CLI ──────────────────────────────────
       - name: Install gltf-transform CLI
         run: npm install -g @gltf-transform/cli
 
-      # ── PASO 3: comprimir texturas ───────────────────────────────────────────
-      - name: Compress textures to KTX2 (ETC1S)
+      - name: Compress textures to WebP
         run: |
           set -e
           compressed=0
@@ -73,8 +47,8 @@ jobs:
               size_before=$(du -sh "$glb" | cut -f1)
               echo "▶ Comprimiendo: $glb (antes: $size_before)"
 
-              gltf-transform etc1s "$glb" "$glb" \
-                --quality 128 \
+              gltf-transform webp "$glb" "$glb" \
+                --quality 80 \
                 --verbose
 
               size_after=$(du -sh "$glb" | cut -f1)
@@ -85,7 +59,6 @@ jobs:
 
           echo "Total procesados: $compressed archivo(s)"
 
-      # ── PASO 4: verificar integridad ─────────────────────────────────────────
       - name: Verificar GLB válidos
         run: |
           errors=0
@@ -106,7 +79,6 @@ jobs:
           done
           [ $errors -eq 0 ] || exit 1
 
-      # ── PASO 5: commit ───────────────────────────────────────────────────────
       - name: Commit resultados
         run: |
           git config user.name  "github-actions[bot]"
@@ -116,5 +88,5 @@ jobs:
             echo "Sin cambios, nada que commitear."
             exit 0
           fi
-          git commit -m "chore: KTX2 (ETC1S) texture compression"
+          git commit -m "chore: WebP texture compression"
           git push
