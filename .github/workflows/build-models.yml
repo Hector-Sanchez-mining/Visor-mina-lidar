@@ -22,7 +22,7 @@ jobs:
       - name: Install tools
         run: npm install -g obj2gltf gltf-pipeline @gltf-transform/cli
 
-      - name: Convert OBJ → GLB + Draco + Simplify
+      - name: Convert OBJ → GLB + Simplify + Draco
         run: |
           set -e
           converted=0
@@ -48,19 +48,24 @@ jobs:
 
               # Paso 1: OBJ → GLB
               obj2gltf -i "$obj" -o "$out" --checkTransparency
-              echo "  GLB base: $(du -sh "$out" | cut -f1)"
+              echo "  GLB base:    $(du -sh "$out" | cut -f1)"
 
-              # Paso 2: Simplificación de malla (70% reducción de triángulos)
-              # --ratio 0.30 → conserva 30% de los triángulos
-              # --error 0.001 → tolerancia de error geométrico (bajo = más fiel)
-              # Ideal para LiDAR donde hay millones de tris muy pequeños
+              # Paso 2: Weld — une vértices duplicados y genera índices
+              # OBLIGATORIO antes de simplify; los OBJ no siempre tienen índices
+              gltf-transform weld "$out" "$tmp" --tolerance 0.0001
+              mv "$tmp" "$out"
+              echo "  Weld:        $(du -sh "$out" | cut -f1)"
+
+              # Paso 3: Simplificación de malla
+              # --ratio 0.30 → conserva 30% de triángulos (ajustar si se ve mal)
+              # --error 0.001 → tolerancia geométrica baja (más fiel a original)
               gltf-transform simplify "$out" "$tmp" \
                 --ratio 0.30 \
                 --error 0.001
               mv "$tmp" "$out"
               echo "  Simplificado: $(du -sh "$out" | cut -f1)"
 
-              # Paso 3: Draco sobre la malla ya simplificada
+              # Paso 4: Draco sobre malla ya simplificada
               gltf-pipeline \
                 -i "$out" \
                 -o "$out" \
@@ -69,7 +74,7 @@ jobs:
                 --draco.quantizeNormalBits 10 \
                 --draco.quantizeTexcoordBits 12
 
-              echo "  ✔ Final con Draco: $(du -sh "$out" | cut -f1)"
+              echo "  ✔ Final+Draco: $(du -sh "$out" | cut -f1)"
               converted=$((converted + 1))
             done
           done
@@ -106,5 +111,5 @@ jobs:
             echo "Sin cambios, nada que commitear."
             exit 0
           fi
-          git commit -m "chore: build GLB + simplify + Draco"
+          git commit -m "chore: build GLB + weld + simplify + Draco"
           git push
