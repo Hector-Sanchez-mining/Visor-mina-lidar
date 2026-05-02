@@ -1,7 +1,10 @@
-name: Compress Textures (KTX2 Stable)
+name: Compress Textures (KTX2)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:       # disparo manual
+  workflow_run:            # o automático tras el workflow de GLB
+    workflows: ["Build Models"]   # ← cambia por el name: de tu otro .yml
+    types: [completed]
 
 permissions:
   contents: write
@@ -9,6 +12,11 @@ permissions:
 jobs:
   ktx:
     runs-on: ubuntu-latest
+
+    # Si se disparó por workflow_run, solo correr si el anterior tuvo éxito
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
 
     steps:
       - name: Checkout repo
@@ -18,43 +26,69 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'          # caché para no reinstalar en cada run
 
-      - name: Install tools
-        run: |
-          npm install -g @gltf-transform/cli
+      - name: Install gltf-transform CLI
+        run: npm install -g @gltf-transform/cli
 
-      - name: KTX2 compression
+      - name: Compress textures a KTX2 (etc1s)
         run: |
           set -e
 
+          # etc1s  → mejor compresión, ideal para difuse/color (tus JPG de minería)
+          # uastc  → mejor calidad, útil para normalmaps (no es tu caso)
+          # --no-compress evita re-aplicar Draco sobre geometría ya comprimida
+
           for zone in */; do
-            if [ -d "${zone}dist" ]; then
+            # Ignorar carpetas del sistema
+            [[ "$zone" == ".github/" ]] && continue
+            [[ "$zone" == "node_modules/" ]] && continue
 
-              for glb in "${zone}"dist/*.glb; do
-                [ -f "$glb" ] || continue
+            dist="${zone}dist"
+            [ -d "$dist" ] || continue
 
-                echo "Processing: $glb"
+            for glb in "$dist"/*.glb; do
+              [ -f "$glb" ] || continue
 
-                npx @gltf-transform/cli optimize \
-                  "$glb" \
-                  "$glb" \
-                  --compress draco \
-                  --texture-compress ktx2
+              echo "▶ Procesando: $glb"
 
-              done
-            fi
+              gltf-transform etc1s "$glb" "$glb" \
+                --slots "baseColorTexture,emissiveTexture" \
+                --quality 128 \
+                --cv 1 \
+                --ca 1 \
+                --verbose
+
+              echo "✔ Listo: $glb"
+            done
           done
 
-      - name: Commit results
+      - name: Verificar que los GLB siguen siendo válidos
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          for zone in */; do
+            [[ "$zone" == ".github/" ]] && continue
+            dist="${zone}dist"
+            [ -d "$dist" ] || continue
+            for glb in "$dist"/*.glb; do
+              [ -f "$glb" ] || continue
+              # Verificación mínima: el archivo debe empezar con la magic de GLB (glTF)
+              magic=$(xxd -p -l 4 "$glb")
+              if [ "$magic" != "676c5446" ]; then
+                echo "❌ Archivo corrupto: $glb"
+                exit 1
+              fi
+              echo "✔ OK: $glb"
+            done
+          done
 
-          git add .
-
+      - name: Commit resultados
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "*/dist/*.glb"
           if git diff --cached --quiet; then
+            echo "Sin cambios, nada que commitear."
             exit 0
           fi
-
-          git commit -m "KTX2 texture compression (final)"
+          git commit -m "chore: KTX2 (etc1s) texture compression"
           git push
