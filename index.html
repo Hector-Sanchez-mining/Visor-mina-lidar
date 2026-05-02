@@ -1106,7 +1106,7 @@
           const yawRad   = THREE.MathUtils.degToRad(_fpYaw);
           const pitchRad = THREE.MathUtils.degToRad(_fpPitch * 0.5);
           const fwd    = -dy * speed;
-          const strafe = -dx * speed;
+          const strafe = dx * speed;
           const cosPitch = Math.cos(pitchRad);
           const sinPitch = Math.sin(pitchRad);
           _fpPos.x += Math.sin(yawRad) * cosPitch * fwd + Math.cos(yawRad) * strafe;
