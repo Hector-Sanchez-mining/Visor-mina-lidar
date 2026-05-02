@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'          # caché para no reinstalar en cada run
+          # Sin cache: 'npm' — no hay package-lock.json en el repo
 
       - name: Install gltf-transform CLI
         run: npm install -g @gltf-transform/cli
